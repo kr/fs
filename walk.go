@@ -2,28 +2,22 @@
 package fs
 
 import (
-	"errors"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
 // Walker provides a convenient interface for iterating over the
-// descendents of a filesystem path. It wraps filepath.Walk with
-// an interface patterned after bufio.Scanner and sql.Rows.
+// descendents of a filesystem path.
 // Successive calls to the Step method will step through each
 // file or directory in the tree, including the root. The files
 // are walked in lexical order, which makes the output deterministic
 // but means that for very large directories Walker can be inefficient.
 // Walker does not follow symbolic links.
-//
-// Walking continues until Stop is called or there are no more
-// filesystem entries.
 type Walker struct {
-	itemch chan item
-	cur    item
-	ok     bool // is cur valid?
-	retch  chan error
-	ret    error
+	cur     item
+	stack   []item
+	descend bool
 }
 
 type item struct {
@@ -34,33 +28,36 @@ type item struct {
 
 // Walk returns a new Walker rooted at root.
 func Walk(root string) *Walker {
-	w := new(Walker)
-	w.itemch = make(chan item)
-	w.retch = make(chan error, 1)
-	go func() {
-		filepath.Walk(root, w.recv)
-		close(w.itemch)
-	}()
-	return w
-}
-
-func (w *Walker) recv(path string, info os.FileInfo, err error) error {
-	w.itemch <- item{path, info, err}
-	return <-w.retch
+	info, err := os.Lstat(root)
+	return &Walker{stack: []item{{root, info, err}}}
 }
 
 // Step advances the Walker to the next file or directory,
 // which will then be available through the Path, Stat,
 // and Err methods.
-// It returns false when the walk stops, either at the
-// end of the tree or from a call to Stop.
+// It returns false when the walk stops at the end of the tree.
 func (w *Walker) Step() bool {
-	if w.ok {
-		w.retch <- w.ret
+	if w.descend && w.cur.err == nil && w.cur.info.IsDir() {
+		list, err := ioutil.ReadDir(w.cur.path)
+		if err != nil {
+			w.cur.err = err
+			w.stack = append(w.stack, w.cur)
+		} else {
+			for i := len(list) - 1; i >= 0; i-- {
+				path := filepath.Join(w.cur.path, list[i].Name())
+				w.stack = append(w.stack, item{path, list[i], nil})
+			}
+		}
 	}
-	w.cur, w.ok = <-w.itemch
-	w.ret = nil
-	return w.ok
+
+	if len(w.stack) == 0 {
+		return false
+	}
+	i := len(w.stack) - 1
+	w.cur = w.stack[i]
+	w.stack = w.stack[:i]
+	w.descend = true
+	return true
 }
 
 // Path returns the path to the most recent file or directory
@@ -87,16 +84,5 @@ func (w *Walker) Err() error {
 // SkipDir causes the currently visited directory to be skipped.
 // If w is not on a directory, SkipDir has no effect.
 func (w *Walker) SkipDir() {
-	if w.ok && w.cur.info.IsDir() {
-		w.ret = filepath.SkipDir
-	}
-}
-
-// Stop stops w from visiting any more filesystem entries.
-// Subsequent calls to Step will return false.
-func (w *Walker) Stop() {
-	select {
-	case w.retch <- errors.New("stop"):
-	default:
-	}
+	w.descend = false
 }

@@ -110,7 +110,7 @@ func TestWalk(t *testing.T) {
 		for walker.Step() {
 			err = mark(walker.Path(), walker.Stat(), walker.Err(), &errors, clear)
 			if err != nil {
-				walker.Stop()
+				break
 			}
 		}
 		return err
@@ -193,7 +193,6 @@ func TestBug3486(t *testing.T) { // http://code.google.com/p/go/issues/detail?id
 	walker := fs.Walk(root)
 	for walker.Step() {
 		if walker.Err() != nil {
-			walker.Stop()
 			t.Fatal(walker.Err())
 		}
 
