@@ -8,7 +8,7 @@ import (
 )
 
 // Walker provides a convenient interface for iterating over the
-// descendents of a filesystem path.
+// descendants of a filesystem path.
 // Successive calls to the Step method will step through each
 // file or directory in the tree, including the root. The files
 // are walked in lexical order, which makes the output deterministic
