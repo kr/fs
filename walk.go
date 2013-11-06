@@ -2,9 +2,7 @@
 package fs
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
 )
 
 // Walker provides a convenient interface for iterating over the
@@ -15,6 +13,7 @@ import (
 // but means that for very large directories Walker can be inefficient.
 // Walker does not follow symbolic links.
 type Walker struct {
+	fs      FileSystem
 	cur     item
 	stack   []item
 	descend bool
@@ -28,8 +27,16 @@ type item struct {
 
 // Walk returns a new Walker rooted at root.
 func Walk(root string) *Walker {
-	info, err := os.Lstat(root)
-	return &Walker{stack: []item{{root, info, err}}}
+	return WalkFS(root, new(fs))
+}
+
+// WalkFS returns a new Walker rooted at root on the FileSystem fs.
+func WalkFS(root string, fs FileSystem) *Walker {
+	info, err := fs.Lstat(root)
+	return &Walker{
+		fs:    fs,
+		stack: []item{{root, info, err}},
+	}
 }
 
 // Step advances the Walker to the next file or directory,
@@ -38,13 +45,13 @@ func Walk(root string) *Walker {
 // It returns false when the walk stops at the end of the tree.
 func (w *Walker) Step() bool {
 	if w.descend && w.cur.err == nil && w.cur.info.IsDir() {
-		list, err := ioutil.ReadDir(w.cur.path)
+		list, err := w.fs.ReadDir(w.cur.path)
 		if err != nil {
 			w.cur.err = err
 			w.stack = append(w.stack, w.cur)
 		} else {
 			for i := len(list) - 1; i >= 0; i-- {
-				path := filepath.Join(w.cur.path, list[i].Name())
+				path := w.fs.Join(w.cur.path, list[i].Name())
 				w.stack = append(w.stack, item{path, list[i], nil})
 			}
 		}
