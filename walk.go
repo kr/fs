@@ -18,6 +18,7 @@ type Walker struct {
 	cur     item
 	stack   []item
 	descend bool
+	readdir func(string) ([]os.FileInfo, error)
 }
 
 type item struct {
@@ -28,8 +29,13 @@ type item struct {
 
 // Walk returns a new Walker rooted at root.
 func Walk(root string) *Walker {
-	info, err := os.Lstat(root)
-	return &Walker{stack: []item{{root, info, err}}}
+	return WalkFunc(root, os.Lstat, ioutil.ReadDir)
+}
+
+// WalkFunc operates like Walk using the custom lstat and readdir functions.
+func WalkFunc(root string, lstat func(string) (os.FileInfo, error), readdir func(string) ([]os.FileInfo, error)) *Walker {
+	info, err := lstat(root)
+	return &Walker{stack: []item{{root, info, err}}, readdir: readdir}
 }
 
 // Step advances the Walker to the next file or directory,
@@ -38,7 +44,7 @@ func Walk(root string) *Walker {
 // It returns false when the walk stops at the end of the tree.
 func (w *Walker) Step() bool {
 	if w.descend && w.cur.err == nil && w.cur.info.IsDir() {
-		list, err := ioutil.ReadDir(w.cur.path)
+		list, err := w.readdir(w.cur.path)
 		if err != nil {
 			w.cur.err = err
 			w.stack = append(w.stack, w.cur)
