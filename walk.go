@@ -19,6 +19,7 @@ type Walker struct {
 	stack   []item
 	descend bool
 	readdir func(string) ([]os.FileInfo, error)
+	join    func(...string) string
 }
 
 type item struct {
@@ -29,13 +30,17 @@ type item struct {
 
 // Walk returns a new Walker rooted at root.
 func Walk(root string) *Walker {
-	return WalkFunc(root, os.Lstat, ioutil.ReadDir)
+	return WalkFunc(root, os.Lstat, ioutil.ReadDir, filepath.Join)
 }
 
 // WalkFunc operates like Walk using the custom lstat and readdir functions.
-func WalkFunc(root string, lstat func(string) (os.FileInfo, error), readdir func(string) ([]os.FileInfo, error)) *Walker {
+func WalkFunc(root string, lstat func(string) (os.FileInfo, error), readdir func(string) ([]os.FileInfo, error), join func(...string) string) *Walker {
 	info, err := lstat(root)
-	return &Walker{stack: []item{{root, info, err}}, readdir: readdir}
+	return &Walker{
+		stack:   []item{{root, info, err}},
+		readdir: readdir,
+		join:    join,
+	}
 }
 
 // Step advances the Walker to the next file or directory,
@@ -50,7 +55,7 @@ func (w *Walker) Step() bool {
 			w.stack = append(w.stack, w.cur)
 		} else {
 			for i := len(list) - 1; i >= 0; i-- {
-				path := filepath.Join(w.cur.path, list[i].Name())
+				path := w.join(w.cur.path, list[i].Name())
 				w.stack = append(w.stack, item{path, list[i], nil})
 			}
 		}
