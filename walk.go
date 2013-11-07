@@ -2,9 +2,7 @@
 package fs
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
 )
 
 // Walker provides a convenient interface for iterating over the
@@ -15,11 +13,10 @@ import (
 // but means that for very large directories Walker can be inefficient.
 // Walker does not follow symbolic links.
 type Walker struct {
+	fs      FileSystem
 	cur     item
 	stack   []item
 	descend bool
-	readdir func(string) ([]os.FileInfo, error)
-	join    func(...string) string
 }
 
 type item struct {
@@ -30,16 +27,15 @@ type item struct {
 
 // Walk returns a new Walker rooted at root.
 func Walk(root string) *Walker {
-	return WalkFunc(root, os.Lstat, ioutil.ReadDir, filepath.Join)
+	return WalkFS(root, new(fs))
 }
 
-// WalkFunc operates like Walk using the custom lstat and readdir functions.
-func WalkFunc(root string, lstat func(string) (os.FileInfo, error), readdir func(string) ([]os.FileInfo, error), join func(...string) string) *Walker {
-	info, err := lstat(root)
+// WalkFS returns a new Walker rooted at root on the FileSystem fs.
+func WalkFS(root string, fs FileSystem) *Walker {
+	info, err := fs.Lstat(root)
 	return &Walker{
-		stack:   []item{{root, info, err}},
-		readdir: readdir,
-		join:    join,
+		fs:    fs,
+		stack: []item{{root, info, err}},
 	}
 }
 
@@ -49,13 +45,13 @@ func WalkFunc(root string, lstat func(string) (os.FileInfo, error), readdir func
 // It returns false when the walk stops at the end of the tree.
 func (w *Walker) Step() bool {
 	if w.descend && w.cur.err == nil && w.cur.info.IsDir() {
-		list, err := w.readdir(w.cur.path)
+		list, err := w.fs.ReadDir(w.cur.path)
 		if err != nil {
 			w.cur.err = err
 			w.stack = append(w.stack, w.cur)
 		} else {
 			for i := len(list) - 1; i >= 0; i-- {
-				path := w.join(w.cur.path, list[i].Name())
+				path := w.fs.Join(w.cur.path, list[i].Name())
 				w.stack = append(w.stack, item{path, list[i], nil})
 			}
 		}
