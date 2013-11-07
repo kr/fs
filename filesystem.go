@@ -23,14 +23,14 @@ type FileSystem interface {
 	// empty strings are ignored.
 	//
 	// The separator is FileSystem specific.
-	Join(...string) string
+	Join(elem ...string) string
 }
 
-// fs represents the native underlying filesystem.
+// fs represents a FileSystem provided by the os package.
 type fs struct{}
 
 func (f *fs) ReadDir(dirname string) ([]os.FileInfo, error) { return ioutil.ReadDir(dirname) }
 
 func (f *fs) Lstat(name string) (os.FileInfo, error) { return os.Lstat(name) }
 
-func (f *fs) Join(elems ...string) string { return filepath.Join(elems...) }
+func (f *fs) Join(elem ...string) string { return filepath.Join(elem...) }
