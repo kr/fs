@@ -51,7 +51,11 @@ func (w *Walker) Step() bool {
 			w.stack = append(w.stack, w.cur)
 		} else {
 			for i := len(list) - 1; i >= 0; i-- {
+<<<<<<< HEAD
 				path := Join(w.fs, w.cur.path, list[i].Name())
+=======
+				path := w.fs.Join(w.cur.path, list[i].Name())
+>>>>>>> 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 				w.stack = append(w.stack, item{path, list[i], nil})
 			}
 		}
