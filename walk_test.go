@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kr/fs"
+	 "github.com/kr/fs"
 )
 
 type PathTest struct {
