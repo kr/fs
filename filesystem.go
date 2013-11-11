@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // FileSystem defines the methods of an abstract filesystem.
@@ -18,12 +19,8 @@ type FileSystem interface {
 	// makes no attempt to follow the link.
 	Lstat(name string) (os.FileInfo, error)
 
-	// Join joins any number of path elements into a single path, adding a
-	// separator if necessary. The result is Cleaned; in particular, all
-	// empty strings are ignored.
-	//
-	// The separator is FileSystem specific.
-	Join(elem ...string) string
+	// PathSeparator returns the FileSystem specific path separator.
+	PathSeparator() byte
 }
 
 // fs represents a FileSystem provided by the os package.
@@ -33,4 +30,17 @@ func (f *fs) ReadDir(dirname string) ([]os.FileInfo, error) { return ioutil.Read
 
 func (f *fs) Lstat(name string) (os.FileInfo, error) { return os.Lstat(name) }
 
-func (f *fs) Join(elem ...string) string { return filepath.Join(elem...) }
+func (f *fs) PathSeparator() byte { return os.PathSeparator }
+
+// Join joins any number of path elements into a single path, adding
+// a Separator if necessary. The result is Cleaned, in particular
+// all empty strings are ignored.
+func Join(fs FileSystem, elem ...string) string {
+	sep := string(fs.PathSeparator())
+	for i, e := range elem {
+		if e != "" {
+			return filepath.Clean(strings.Join(elem[i:], sep))
+		}
+	}
+	return ""
+}
