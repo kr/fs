@@ -5,6 +5,7 @@
 package fs_test
 
 import (
+	"flag"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/kr/fs"
 )
+
+var testDir = flag.String("test_dir", "", "The directory in which to perform file operations. If not specified, the current working directory is used.")
 
 type PathTest struct {
 	path, result string
@@ -57,7 +60,7 @@ func walkTree(n *Node, path string, f func(path string, n *Node)) {
 }
 
 func makeTree(t *testing.T) {
-	walkTree(tree, tree.name, func(path string, n *Node) {
+	walkTree(tree, filepath.Join(*testDir, tree.name), func(path string, n *Node) {
 		if n.entries == nil {
 			fd, err := os.Create(path)
 			if err != nil {
@@ -116,7 +119,7 @@ func TestWalk(t *testing.T) {
 		return err
 	}
 	// Expect no errors.
-	err := markFn(fs.Walk(tree.name))
+	err := markFn(fs.Walk(filepath.Join(*testDir, tree.name)))
 	if err != nil {
 		t.Fatalf("no error expected, found: %s", err)
 	}
@@ -131,8 +134,8 @@ func TestWalk(t *testing.T) {
 	// all.bash on those file systems, skip during go test -short.
 	if os.Getuid() > 0 && !testing.Short() {
 		// introduce 2 errors: chmod top-level directories to 0
-		os.Chmod(filepath.Join(tree.name, tree.entries[1].name), 0)
-		os.Chmod(filepath.Join(tree.name, tree.entries[3].name), 0)
+		os.Chmod(filepath.Join(*testDir, tree.name, tree.entries[1].name), 0)
+		os.Chmod(filepath.Join(*testDir, tree.name, tree.entries[3].name), 0)
 
 		// 3) capture errors, expect two.
 		// mark respective subtrees manually
@@ -141,7 +144,7 @@ func TestWalk(t *testing.T) {
 		// correct double-marking of directory itself
 		tree.entries[1].mark--
 		tree.entries[3].mark--
-		err := markFn(fs.Walk(tree.name))
+		err := markFn(fs.Walk(filepath.Join(*testDir, tree.name)))
 		if err != nil {
 			t.Fatalf("expected no error return from Walk, got %s", err)
 		}
@@ -160,7 +163,7 @@ func TestWalk(t *testing.T) {
 		tree.entries[1].mark--
 		tree.entries[3].mark--
 		clear = false // error will stop processing
-		err = markFn(fs.Walk(tree.name))
+		err = markFn(fs.Walk(filepath.Join(*testDir, tree.name)))
 		if err == nil {
 			t.Fatalf("expected error return from Walk")
 		}
@@ -172,8 +175,8 @@ func TestWalk(t *testing.T) {
 		errors = errors[0:0]
 
 		// restore permissions
-		os.Chmod(filepath.Join(tree.name, tree.entries[1].name), 0770)
-		os.Chmod(filepath.Join(tree.name, tree.entries[3].name), 0770)
+		os.Chmod(filepath.Join(*testDir, tree.name, tree.entries[1].name), 0770)
+		os.Chmod(filepath.Join(*testDir, tree.name, tree.entries[3].name), 0770)
 	}
 
 	// cleanup
