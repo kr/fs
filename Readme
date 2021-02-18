@@ -1,3 +1,10 @@
 Filesystem Package
 
 http://godoc.org/github.com/kr/fs
+
+---
+
+Using Go 1.16 or later?
+
+You might be interested https://kr.dev/walk
+instead. That one uses the new package io/fs.
